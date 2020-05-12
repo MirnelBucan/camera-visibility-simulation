@@ -1,0 +1,1 @@
+# simulacija_vidljivost_kamera
