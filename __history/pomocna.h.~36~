@@ -1,0 +1,90 @@
+//---------------------------------------------------------------------------
+
+#ifndef pomocnaH
+#define pomocnaH
+#include <vector>
+#define PI 3.14159265
+
+using namespace std;
+
+struct Tacka {
+	int x;
+	int y;
+	Tacka():x(0),y(0) {}
+	Tacka(int X, int Y):x(X),y(Y) {}
+	Tacka(const Tacka &t){ x = t.x; y = t.y; }
+	void Crtaj(TImage*) const;
+};
+
+bool operator==(Tacka,Tacka);
+bool operator!=(Tacka,Tacka);
+bool operator<(Tacka,Tacka);
+
+struct Duz {
+	Tacka pocetna;
+	Tacka krajnja;
+	Duz(Tacka A,Tacka B):pocetna(A),krajnja(B) {
+//		if(pocetna < krajnja)
+//		swap(pocetna,krajnja);
+	}
+	void Crtaj(TImage*) const;
+    bool vertikalna() { return pocetna.x == krajnja.x; }
+};
+
+struct Trougao {
+	Tacka A;
+	Tacka B;
+	Tacka C;
+	Trougao(Tacka A, Tacka B, Tacka C):A(A),B(B),C(C) {}
+	void Crtaj(TImage*) const;
+};
+
+struct Kamera {
+	Tacka pozicija;
+	Tacka pocetakVidokruga;
+	Tacka krajVidokruga;
+	vector<Tacka> vidokrug;
+
+	int ugaoRotacije = 1;
+	int brojac  = 0;
+	Kamera(Tacka t) {
+		Tacka pomocna = Tacka(-90000, t.y);
+		pozicija = Tacka(t);
+		pocetakVidokruga =  rotirajTacku(pomocna, 330);
+		krajVidokruga = rotirajTacku(pomocna, 30);
+	}
+
+	void rotirajKameru();
+	void iscrtajVidokrug(TImage*);
+	void crtaj(TImage*) const;
+	void resetVidokrug();
+	void odrediVidokrug(vector<Tacka>, TImage*, TEdit*, TEdit*);
+	void odrediVidokrug2(vector<Tacka>, TImage*, TEdit*, TEdit*);
+
+private:
+	Tacka rotirajTacku(Tacka, double);
+	Tacka rubnaTacka(Duz);
+	bool pripadaVidokrugu(Tacka);
+	Tacka sjenkaTacke(Tacka,vector<Tacka>);
+};
+
+double ugaoIzmedjuDuzi(Tacka, Tacka, Tacka);
+double ugaoIzmedjuDuzi2(Tacka, Tacka, Tacka);
+void iscrtajPoligon(vector<Tacka> &poligon, TImage *image);
+int Orijentacija(Tacka,Tacka,Tacka);
+int PresjekDuzi(Duz, Duz);
+bool tackaNaDuzi(Tacka, Tacka, Tacka);
+bool daLiJeTackaUnutarTrougla(Tacka,Trougao);
+bool daLiJeUnutarProstogMnogougla(Duz, vector<Tacka>&);
+double stepeniURadijanima(double);
+double radijaniUstepenima(double);
+Tacka tackaPresjeka(Tacka, Tacka, Tacka, Tacka);
+
+Tacka tackaPresjeka2(Duz, Duz);
+double determinanta(double a, double b, double c, double d);
+double udaljenost(Tacka, Tacka);
+
+
+
+//---------------------------------------------------------------------------
+#endif

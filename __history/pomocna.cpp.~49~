@@ -1,0 +1,473 @@
+//---------------------------------------------------------------------------
+
+#pragma hdrstop
+
+#include "pomocna.h"
+#include <algorithm>
+
+
+int Orijentacija(Tacka A, Tacka B, Tacka C) {
+
+	int P = A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y);
+	if(P > 0)
+	  return -1;
+	if(P < 0)
+	  return 1;
+	return 0;
+
+}
+
+
+double udaljenost(Tacka A, Tacka B){
+	return sqrt( pow(B.x - A.x, 2.0) + pow(B.y - A.y, 2.0) );
+}
+
+double determinanta(double a, double b, double c, double d){
+	return a*d - c*b;
+}
+
+
+Tacka tackaPresjeka(Tacka A, Tacka B, Tacka C, Tacka D) {
+	int x1 = A.x,
+		y1 = A.y,
+		x2 = B.x,
+		y2 = B.y,
+		x3 = C.x,
+		y3 = C.y,
+		x4 = D.x,
+		y4 = D.y;
+
+	double subDet1 = determinanta(x1,y1,x2,y2),
+		subDet2 = determinanta(x1,1,x2,1),
+		subDet3 = determinanta(y1,1,y2,1),
+		subDet4 = determinanta(x3,y3,x4,y4),
+		subDet5 = determinanta(x3,1,x4,1),
+		subDet6 = determinanta(y3,1,y4,1);
+
+	double mainDet1 = determinanta(subDet1, subDet2, subDet4, subDet5),
+		mainDet2 = determinanta(subDet2, subDet3, subDet5, subDet6),
+		mainDet3 = determinanta(subDet1, subDet3, subDet4, subDet6),
+		mainDet4 = determinanta(subDet2, subDet3, subDet5, subDet6);
+
+	double X = mainDet1/mainDet2;
+	double Y = mainDet3/mainDet4;
+
+	return Tacka(X,Y);
+}
+
+double stepeniUradijanima(double stepeni){
+	return stepeni * PI / 180.0;
+}
+
+double radijaniUstepenima(double radijani){
+	return radijani * 180.0 / PI;
+}
+
+
+bool daLiJeUnutarProstogMnogougla(Duz poluprava, vector<Tacka>& tacke){
+	int brojac = 0;
+
+	for(int i=0;i<tacke.size();i++) {
+		Duz trenutna(tacke[i],tacke[(i+1)%tacke.size()]);
+		if(PresjekDuzi(poluprava,trenutna) == 1)
+			brojac++;
+	}
+
+	if(brojac%2 == 1)
+		return true;
+
+	return false;
+}
+
+void iscrtajPoligon(vector<Tacka> &poligon, TImage *image) {
+
+  image->Canvas->MoveTo(poligon[poligon.size()-1].x,poligon[poligon.size()-1].y);
+  for(int i=0;i<poligon.size();i++)
+	image->Canvas->LineTo(poligon[i].x,poligon[i].y);
+}
+
+void Tacka::Crtaj(TImage *slika) const {
+	slika->Canvas->Brush->Color = clBlue;
+	slika->Canvas->Ellipse(x-3,y-3,x+3,y+3);
+	slika->Canvas->Brush->Color = clWhite;
+}
+
+
+bool operator<(Tacka A, Tacka B) {
+	if(A.x < B.x)
+	  return true;
+	if(A.x == B.x)
+	  return A.y < B.y;
+	return false;
+}
+
+bool operator==(Tacka A, Tacka B) {
+  return A.x == B.x && A.y == B.y;
+}
+
+bool operator!=(Tacka A, Tacka B) {
+  return A.x != B.x || A.y != B.y;
+}
+
+
+void Duz::Crtaj(TImage *slika) const {
+	pocetna.Crtaj(slika);
+	krajnja.Crtaj(slika);
+	slika->Canvas->MoveTo(pocetna.x,pocetna.y);
+	slika->Canvas->LineTo(krajnja.x,krajnja.y);
+}
+
+
+//true za presjek
+//false ako nema presjeka
+//1 za normalan presjek
+//0 ako nema presjeka
+//-1 ako jedna duz sadrzi kraj druge
+//-2 ako jedna duz sadrzi drugu
+//moguce je jos slucajeva (npr. da je presjek dvije duzi neka duz, a to
+//nije neka od datih duzi)
+int PresjekDuzi(Duz p, Duz q) {
+   int or1 = Orijentacija(p.pocetna,p.krajnja,q.pocetna);
+   int or2 = Orijentacija(p.pocetna,p.krajnja,q.krajnja);
+   int or3 = Orijentacija(q.pocetna,q.krajnja,p.pocetna);
+   int or4 = Orijentacija(q.pocetna,q.krajnja,p.krajnja);
+
+   if( or1 != 0 && or2 != 0 && or3 != 0 && or4 != 0)
+	 if( or1 * or2 < 0 && or3 * or4 < 0)
+		return 1;
+	 else return 0;
+   else {
+	   if(or1 == 0) {
+		   if(or2 != 0) {
+			   if(p.vertikalna) {
+				  if(p.pocetna.y <= q.pocetna.y && q.pocetna.y <= p.krajnja.y)
+					return -1;
+				  else return 0;
+			   }
+			   else {
+				  if(p.pocetna.x <= q.pocetna.x && q.pocetna.x <= p.krajnja.x)
+					return -1;
+				  else return 0;
+			   }
+		   }
+		   else {
+			  if(p.vertikalna) {
+				  if(p.pocetna.y > q.krajnja.y || q.pocetna.y > p.krajnja.y)
+					return 0;
+				  else return -2;
+			  }
+			  else {
+				  if(p.pocetna.x > q.krajnja.x || q.pocetna.x > p.krajnja.x)
+					return 0;
+				  else return -2;
+			  }
+		   }
+	   }
+	   else if(or2 == 0) {
+		  if(p.vertikalna) {
+			if(p.pocetna.y <= q.krajnja.y && q.krajnja.y <= p.krajnja.y)
+			  return -1;
+			else return 0;
+		  }
+		  else {
+			if(p.pocetna.x <= q.krajnja.x && q.krajnja.x <= p.krajnja.x)
+			  return -1;
+			else return 0;
+		  }
+	   }
+
+	   else
+	   if(or3 == 0) {
+		   if(or4 != 0) {
+			   if(q.vertikalna) {
+				  if(q.pocetna.y <= p.pocetna.y && p.pocetna.y <= q.krajnja.y)
+					return -1;
+				  else return 0;
+			   }
+			   else {
+				  if(q.pocetna.x <= p.pocetna.x && p.pocetna.x <= q.krajnja.x)
+					return -1;
+				  else return 0;
+			   }
+		   }
+		   else {
+			  if(q.vertikalna) {
+				  if(q.pocetna.y > p.krajnja.y || p.pocetna.y > q.krajnja.y)
+					return 0;
+				  else return -2;
+			  }
+			  else {
+				  if(q.pocetna.x > p.krajnja.x || p.pocetna.x > q.krajnja.x)
+					return 0;
+				  else return -2;
+			  }
+		   }
+	   }
+	   else {
+		  if(q.vertikalna)  {
+			if(q.pocetna.y <= p.krajnja.y && p.krajnja.y <= q.krajnja.y)
+			  return -1;
+			else return 0;
+		  }
+		  else {
+			if(q.pocetna.x <= p.krajnja.x && p.krajnja.x <= q.krajnja.x)
+			  return -1;
+			else return 0;
+		  }
+
+	   }
+
+   }
+}
+
+Tacka Kamera::rotirajTacku(Tacka t, double ugao){
+	double sinUgla = sin(stepeniUradijanima(ugao));
+	double cosUgla = cos(stepeniUradijanima(ugao));
+
+	double novoX = (t.x - pozicija.x)*cosUgla - (t.y - pozicija.y)*sinUgla;
+	double novoY = (t.x - pozicija.x)*sinUgla + (t.y - pozicija.y)*cosUgla;
+
+	t.x = novoX + pozicija.x;
+	t.y = novoY + pozicija.y;
+
+	return t;
+}
+
+
+void Kamera::iscrtajVidokrug(TImage* slika) {
+	slika->Canvas->MoveTo(pozicija.x, pozicija.y);
+	slika->Canvas->Pen->Color = clLime;
+	slika->Canvas->LineTo(pocetakVidokruga.x, pocetakVidokruga.y);
+
+	slika->Canvas->MoveTo(pozicija.x, pozicija.y);
+	slika->Canvas->LineTo(krajVidokruga.x, krajVidokruga.y);
+
+	TPoint points[vidokrug.size()+1];
+	points[0] = Point(pozicija.x, pozicija.y);
+
+	for(int i=0; i< vidokrug.size();i++){
+		points[i+1] = Point(vidokrug[i].x, vidokrug[i].y);
+	}
+
+	slika->Canvas->Brush->Color = clLime;
+
+	slika->Canvas->Polygon(points,vidokrug.size());
+
+	slika->Canvas->Brush->Color = clWhite;
+}
+
+void Kamera::crtaj(TImage* slika) const {
+	slika->Canvas->Brush->Color = clRed;
+	slika->Canvas->FillRect(Rect(pozicija.x-3, pozicija.y-3, pozicija.x+3, pozicija.y+3));
+	slika->Canvas->Brush->Color = clWhite;
+}
+
+
+void Kamera::rotirajKameru(){
+	pocetakVidokruga =  rotirajTacku(pocetakVidokruga, ugaoRotacije);
+	krajVidokruga = rotirajTacku(krajVidokruga, ugaoRotacije);
+}
+void Kamera::resetVidokrug(){
+	Tacka pomocna = Tacka(0, pozicija.y);
+	pocetakVidokruga =  rotirajTacku(pomocna, -30);
+	krajVidokruga = rotirajTacku(pomocna, 30);
+}
+
+void Kamera::odrediVidokrug(vector<Tacka> tacke,TImage *slika, TEdit *pVUgao, TEdit* kVUgao){
+
+	Tacka pV, kV;
+	vector<pair<Tacka, bool> > vidljive;
+	slika->Canvas->Pen->Color = clPurple;
+	int brojPresjeka = 0;
+
+	for(int i=0; i < tacke.size()-1;i++){
+		brojPresjeka = 0;
+		for(int j = 0 ; j< tacke.size()-1;j++){
+			if(doIntersect(tacke[j], tacke[j+1], pozicija, tacke[i])){
+				brojPresjeka++;
+			}
+		}
+
+
+		if(brojPresjeka == 2 && pripadaVidokrugu(tacke[i])){
+
+			if(i>0){
+				vidljive.push_back(
+					make_pair(
+						tacke[i],
+						orientation(pozicija, tacke[i], tacke[i+1])
+						!= orientation(pozicija, tacke[i-1], tacke[i])
+					)
+				);
+			} else {
+			  vidljive.push_back(
+					make_pair(
+						tacke[i],
+						orientation(pozicija, tacke[0], tacke[1])
+						!= orientation(pozicija, tacke[tacke.size()-2], tacke.back())
+					)
+				);
+			}
+
+		}
+	}
+
+
+	Duz poluprava(pozicija, Tacka(0,pozicija.y));
+
+	vidokrug.clear();
+	brojPresjeka = 0;
+
+
+	float d = 0.0, r=0.0;
+	for(int i=0; i < tacke.size()-1;i++){
+
+	   if(doIntersect(tacke[i],tacke[i+1], pozicija, pocetakVidokruga)){
+
+			 if( d == 0.0 || d > udaljenost(pozicija, tackaPresjeka(tacke[i], tacke[i+1], pozicija, pocetakVidokruga))){
+
+				pV = tackaPresjeka(tacke[i], tacke[i+1], pozicija, pocetakVidokruga);
+				d = udaljenost(pozicija,pV);
+			}
+	   }
+
+	}
+
+	for(int i=0; i < tacke.size()-1;i++){
+
+	   if(doIntersect(tacke[i],tacke[i+1], pozicija, krajVidokruga)){
+
+			 if( r == 0.0 || r > udaljenost(pozicija, tackaPresjeka(tacke[i], tacke[i+1], pozicija, krajVidokruga))){
+
+				kV = tackaPresjeka(tacke[i], tacke[i+1], pozicija, krajVidokruga);
+				r = udaljenost(pozicija,kV);
+			}
+	   }
+
+	}
+
+	pV.Crtaj(slika);
+	kV.Crtaj(slika);
+	d = 0.0;
+	vector<Duz> pot;
+	slika->Canvas->Pen->Color = clRed;
+	vidokrug.push_back(pozicija);
+	vidokrug.push_back(pV);
+
+
+	slika->Canvas->Pen->Color = clBlack;
+
+
+	for(int i=0; i < vidljive.size();i++){
+		vidokrug.push_back(vidljive[i].first);
+		if(vidljive[i].second ){
+			vidokrug.push_back(sjenkaTacke(vidljive[i].first, tacke));
+		}
+	}
+	vidokrug.push_back(kV);
+
+	Tacka p = vidokrug[0];
+
+
+
+
+	sort(vidokrug.begin()+1, vidokrug.end(), [p] (Tacka A, Tacka B){
+	  return orientation(p,A,B) != 1;
+	});
+
+	pVUgao->Text = round( ugaoIzmedjuDuzi( Tacka(0, pozicija.y), pozicija , pocetakVidokruga ));
+	kVUgao->Text = round( ugaoIzmedjuDuzi( Tacka(0, pozicija.y), pozicija , krajVidokruga ));
+}
+
+
+
+
+
+
+/*       C
+		/\
+	   /  \
+	  /    \
+	 /      \
+	/    Ugao\
+   A----------B
+
+   Ugao se mjeri u odnosu na AB, u smjeru kazaklje na satu
+
+*/
+
+double ugaoIzmedjuDuzi(Tacka A, Tacka B, Tacka C) {
+	double ugao;
+	double pocetnaX = A.x - B.x;
+	double krajnjaX = C.x - B.x;
+
+	double pocetnaY = A.y - B.y;
+	double krajnjaY = C.y - B.y;
+
+	double prvaDuzina = sqrt(pocetnaX*pocetnaX + pocetnaY*pocetnaY);
+	double drugaDuzina = sqrt(krajnjaX*krajnjaX + krajnjaY*krajnjaY);
+
+	ugao = acos(( pocetnaX*krajnjaX + pocetnaY*krajnjaY)/(prvaDuzina*drugaDuzina) );
+
+	ugao = radijaniUstepenima(ugao);
+
+	return Orijentacija(A, B, C) >= 0 ? ugao : 360 - ugao ;
+}
+
+bool Kamera::pripadaVidokrugu(Tacka trenutna){
+	double ugaoSaKrajnjom,ugaoSaPocetnom, tekuciUgao;
+	Tacka tmp(0,pozicija.y);
+
+	ugaoSaPocetnom = ugaoIzmedjuDuzi( tmp, pozicija , pocetakVidokruga );
+	ugaoSaKrajnjom = ugaoIzmedjuDuzi( tmp, pozicija, krajVidokruga );
+	tekuciUgao = ugaoIzmedjuDuzi( tmp, pozicija, trenutna );
+
+	if(
+		ugaoSaPocetnom < ugaoSaKrajnjom &&
+		tekuciUgao >= ugaoSaPocetnom &&
+		tekuciUgao <= ugaoSaKrajnjom
+	){
+		return true;
+	} else if(
+		ugaoSaPocetnom > ugaoSaKrajnjom &&
+		!(tekuciUgao <= ugaoSaPocetnom &&
+		tekuciUgao >= ugaoSaKrajnjom)
+	) {
+		return true;
+	}
+
+	return false;
+}
+
+
+
+Tacka Kamera::sjenkaTacke(Tacka tacka, vector<Tacka> tacke){
+	double fi, k, r, pomak;
+
+	fi = ugaoIzmedjuDuzi(Tacka(0, pozicija.y), pozicija, tacka);
+
+	Tacka t(-900,pozicija.y);
+
+	t = rotirajTacku(t, fi);
+	k = udaljenost(tacka, pozicija);
+	r = udaljenost(t, pozicija);
+
+	Tacka tmp;
+
+
+	for(int j=0; j < tacke.size()-1;j++) {
+		if(tacka != tacke[j] && tacka != tacke[j+1] && doIntersect(tacke[j],tacke[j+1], pozicija, t)) {
+			if( r > k &&
+			r > udaljenost(tacka, tackaPresjeka(tacke[j], tacke[j+1], pozicija, t)) ) {
+
+				tmp = tackaPresjeka(tacke[j], tacke[j+1], pozicija, t);
+				r = udaljenost(tacka,tmp);
+			}
+		}
+	}
+
+	return tmp;
+}
+
+//---------------------------------------------------------------------------
+#pragma package(smart_init)

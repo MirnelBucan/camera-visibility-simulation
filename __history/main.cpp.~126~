@@ -1,0 +1,251 @@
+//---------------------------------------------------------------------------
+
+#include <vcl.h>
+#pragma hdrstop
+
+#include "main.h"
+#include <algorithm>
+//---------------------------------------------------------------------------
+#pragma package(smart_init)
+#pragma resource "*.dfm"
+TkrajVidokrugaLabel *krajVidokrugaLabel;
+//---------------------------------------------------------------------------
+__fastcall TkrajVidokrugaLabel::TkrajVidokrugaLabel(TComponent* Owner)
+	: TForm(Owner)
+{
+    srand(time(0));
+	Timer1->Interval = StrToInt(brzinaKamera->Text);
+
+	Slika->Canvas->FillRect(Rect(0,0,Slika->Width,Slika->Height));
+	SlikaVidokruga->Canvas->FillRect(Rect(0,0,Slika->Width,Slika->Height));
+}
+//---------------------------------------------------------------------------
+void TkrajVidokrugaLabel::dodajTacku(Tacka nova) {
+	tacke.push_back(nova);
+	nova.Crtaj(Slika);
+}
+//---------------------------------------------------------------------------
+void TkrajVidokrugaLabel::dodajStranicuMnogoUgla(Duz nova) {
+	mnogougao.push_back(nova);
+}
+//---------------------------------------------------------------------------
+void TkrajVidokrugaLabel::dodajKameru(Kamera novaKamera) {
+	kamere.push_back(novaKamera);
+	novaKamera.crtaj(Slika);
+}
+
+//---------------------------------------------------------------------------
+void __fastcall TkrajVidokrugaLabel::GenerisanjeTacakaClick(TObject *Sender)
+{
+  int broj_tacaka = EditBrojTacaka->Text.ToInt();
+  for(int i=0;i<broj_tacaka;i++) {
+	  Tacka nova(rand()%(Slika->Width),rand()%(Slika->Height));
+	  dodajTacku(nova);
+  }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::SlikaMouseMove(TObject *Sender, TShiftState Shift,
+		  int X, int Y)
+{
+     EditKoordinate->Text = "( " + IntToStr(X) + " , " + IntToStr(Y) + " )";
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::SlikaVidokrugMouseMove(TObject *Sender, TShiftState Shift, int X,
+		  int Y)
+{
+	EditKoordinate->Text = "( " + IntToStr(X) + " , " + IntToStr(Y) + " )";
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::DugmeProstiMnogougaoClick(TObject *Sender)
+{
+   for(int i=1;i<tacke.size();i++)
+	 if(tacke[i] < tacke[0])
+	   swap(tacke[i],tacke[0]);
+
+   Tacka prva = tacke[0];
+   sort(tacke.begin()+1,tacke.end(),[prva](Tacka A, Tacka B) {
+										return Orijentacija(prva,A,B) < 0;
+									});
+   tacke.push_back(tacke[0]);
+
+   for(int i=0; i<tacke.size()-1;i++)
+	 mnogougao.push_back(Duz(tacke[i], tacke[i+1]));
+
+   mnogougao.push_back(Duz(tacke.back(), tacke.front()));
+
+   iscrtajPoligon(tacke,Slika);
+
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::SlikaMouseDown(TObject *Sender, TMouseButton Button, TShiftState Shift,
+		  int X, int Y)
+{
+	if(DodavanjeTacaka->Checked) {
+		Tacka nova(X,Y);
+		dodajTacku(nova);
+	} else if(CrtanjeMnogougla->Checked) {
+		Tacka nova(X,Y);
+		if(!tacke.empty()){
+		   Slika->Canvas->LineTo(X,Y);
+		   dodajStranicuMnogoUgla(Duz(tacke.back(), nova));
+		} else {
+			Slika->Canvas->MoveTo(X,Y);
+		}
+		dodajTacku(nova);
+	} else if(dodavanjeKamere->Checked) {
+		Tacka nova(X,Y);
+        Duz poluprava(Tacka(X,Y),Tacka(Slika->Width,Slika->Height));
+
+		if(daLiJeUnutarProstogMnogougla(poluprava,tacke)){
+			dodajKameru(Kamera(nova));
+			kamere[kamere.size()-1].ugaoRotacije = StrToInt(ugaoRotacije->Text);
+			kamere[kamere.size()-1].odrediVidokrug(tacke, SlikaVidokruga, pocetakVidokrugaUgao, krajVidokrugaUgao);
+			kamere[kamere.size()-1].iscrtajVidokrug(SlikaVidokruga);
+
+		} else
+		  ShowMessage("Tacka nije unutar mnogougla");
+	}
+}
+
+void __fastcall TkrajVidokrugaLabel::ZavrsiMnogougaoClick(TObject *Sender)
+{
+	Slika->Canvas->LineTo(tacke[0].x,tacke[0].y);
+	mnogougao.push_back(Duz(tacke.front(), tacke.back()));
+	tacke.push_back(tacke[0]);
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::ClearClick(TObject *Sender)
+{
+  Slika->Canvas->FillRect(Rect(0,0,Slika->Width,Slika->Height));
+  SlikaVidokruga->Canvas->FillRect(Rect(0,0,Slika->Width,Slika->Height));
+  SlikaVidokruga->Visible = false;
+  tacke.clear();
+  kamere.clear();
+  mnogougao.clear();
+}
+//---------------------------------------------------------------------------
+
+
+void __fastcall TkrajVidokrugaLabel::stanjeSimulacijaClick(TObject *Sender)
+{
+	SlikaVidokruga->Visible = true;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::Timer1Timer(TObject *Sender)
+{
+	if(jePokrenutaSimulacija && kamere.size() != 0) {
+		SlikaVidokruga->Canvas->FillRect(Rect(0,0,Slika->Width,Slika->Height));
+
+		for(int i=0; i< kamere.size();i++){
+			kamere[i].rotirajKameru();
+            kamere[i].odrediVidokrug(tacke, SlikaVidokruga, pocetakVidokrugaUgao, krajVidokrugaUgao);
+			kamere[i].iscrtajVidokrug(SlikaVidokruga);
+		}
+	}
+
+}
+//---------------------------------------------------------------------------
+
+
+void __fastcall TkrajVidokrugaLabel::DodavanjeTacakaClick(TObject *Sender)
+{
+
+	SlikaVidokruga->Visible = false;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::CrtanjeMnogouglaClick(TObject *Sender)
+{
+;
+	SlikaVidokruga->Visible = false;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::UnutarProstogClick(TObject *Sender)
+{
+
+	SlikaVidokruga->Visible = false;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::dodavanjeKamereClick(TObject *Sender)
+{
+
+	SlikaVidokruga->Visible = false;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::akcijaSimulacijaClick(TObject *Sender)
+{
+	SlikaVidokruga->Canvas->FillRect(Rect(0,0,Slika->Width,Slika->Height));
+	SlikaVidokruga->Visible = true;
+
+	for(int i=0; i< kamere.size();i++){
+		kamere[i].iscrtajVidokrug(SlikaVidokruga);
+	}
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::stanjeSimulacijeClick(TObject *Sender)
+{
+	if(!stanjeSimulacije->Checked){
+		if(jePokrenutaSimulacija){
+			jePokrenutaSimulacija = false;
+		}
+		SlikaVidokruga->Visible = false;
+	} else {
+		SlikaVidokruga->Visible = true;
+    }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::resetSimulacijuClick(TObject *Sender)
+{
+	SlikaVidokruga->Canvas->FillRect(Rect(0,0,Slika->Width,Slika->Height));
+
+	for(int i=0; i< kamere.size();i++){
+		kamere[i].resetVidokrug();
+		kamere[i].iscrtajVidokrug(SlikaVidokruga);
+	}
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::startSimulacijuClick(TObject *Sender)
+{
+	jePokrenutaSimulacija = true;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::stopSimulacijuClick(TObject *Sender)
+{
+    jePokrenutaSimulacija = false;
+}
+//---------------------------------------------------------------------------
+
+
+void __fastcall TkrajVidokrugaLabel::brzinaKameraChange(TObject *Sender)
+{
+   if(jePokrenutaSimulacija){
+			jePokrenutaSimulacija = false;
+   }
+   Timer1->Interval = StrToInt(brzinaKamera->Text);
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TkrajVidokrugaLabel::ugaoRotacijeChange(TObject *Sender)
+{
+   if(jePokrenutaSimulacija){
+			jePokrenutaSimulacija = false;
+   }
+   for(int i = 0; i< kamere.size();i++){
+		kamere[i].ugaoRotacije =StrToInt(ugaoRotacije->Text);
+   }
+}
+//---------------------------------------------------------------------------
+
